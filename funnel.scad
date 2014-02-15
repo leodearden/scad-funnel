@@ -1,13 +1,10 @@
-use <hose/hose_tail.scad>;
-include <gear-mother-mold.scad>;
-
-funnel_mouth_r = 70/2;
+include <scad-hose/hose-tail.scad>;
 
 rim_hole_r = 6/2;
 
 drain_r = 2.5/2;
 
-chamber_wall_t = 8;
+chamber_wall_t = 4;
 
 function funnel_hight(mouth_r, throat_r) = mouth_r - throat_r;
 
@@ -27,7 +24,6 @@ module circular_bolting_flange( or, flange_t = chamber_wall_t, bolt_hole_r = rim
 }
 
 horizontal_wall_t = sqrt(2) * chamber_wall_t;
-flange_or = funnel_mouth_r + horizontal_wall_t + 2 * (chamber_wall_t + rim_hole_r);
 
 module funnel_inside(mouth_r, throat_r, tip = true) {
 	funnel_h = funnel_hight(mouth_r, throat_r);
@@ -44,14 +40,17 @@ module funnel_inside(mouth_r, throat_r, tip = true) {
 
 module funnel_outside(mouth_r, throat_r, flange_t = chamber_wall_t, tip = true) {
 	funnel_h = funnel_hight(mouth_r, throat_r);
+	flange_or = mouth_r + horizontal_wall_t + 2 * (chamber_wall_t + rim_hole_r);
 	tip_h = tip ? horizontal_wall_t : 0;
 	union() {
 		// Outside of cone
 		cylinder(r1 = mouth_r + horizontal_wall_t,
 		         r2 = tip ? throat_r : throat_r + horizontal_wall_t,
 		         h = funnel_h + tip_h);
-		// Rim
-		circular_bolting_flange(flange_or, flange_t);
+		if(flange_t) {
+			// Rim
+			circular_bolting_flange(flange_or, flange_t);
+		}
 	}
 }
 
@@ -62,121 +61,14 @@ module funnel(mouth_r, throat_r, flange_t = chamber_wall_t, tip = true) {
 	}
 }
 
-//funnel(funnel_mouth_r, hose_tail_ir(feed_id, hose_tail_default_stretch(), min_wall_t), 2 * chamber_wall_t );
+//funnel(mouth_r = 70/2, throat_r = 16/2, flange_t = 0, tip = false);
 
-module funnel_with_tail() {
-       	throat_r = hose_tail_ir(feed_id, hose_tail_default_stretch(), min_wall_t);
-	funnel(funnel_mouth_r, throat_r, chamber_wall_t);
-       	translate([0, 0, funnel_hight(funnel_mouth_r, throat_r)]) {
-		hose_tail(feed_id, feed_tail_h, min_wall_t);
+module funnel_with_tail(mouth_r, feed_id, feed_tail_h) {
+	throat_r = hose_tail_ir(feed_id, hose_tail_default_stretch(), chamber_wall_t);
+	funnel(mouth_r, throat_r, chamber_wall_t);
+		translate([0, 0, funnel_hight(mouth_r, throat_r)]) {
+			hose_tail(feed_id, feed_tail_h, chamber_wall_t);
 	}
 }
 
-//funnel_with_tail();
-
-duct_ir = hose_tail_min_or(feed_id, hose_tail_default_stretch()) - min_wall_t;
-// rs^2 = rd^2 + (rs - hd)^2
-//      = rd^2 + rs^2 - 2rs.hd + hd^2
-//: rs  = (rd^2 + hd^2)/2hd
-module dome_top() {
-	dome_h = 25;
-	dome_r = flange_or - 2 * (rim_hole_r + chamber_wall_t);
-	dome_sphere_r = (pow(dome_r, 2) + pow(dome_h, 2))/(2 * dome_h);
-	difference() {
-		union() {
-			circular_bolting_flange(flange_or);
-			intersection() {
-				translate([0, 0, dome_h - dome_sphere_r]) sphere(r = dome_sphere_r);
-				cylinder(r = dome_r + eps, h = dome_h);
-			}
-			translate([0, 0, dome_h]) {
-				translate([0, -dome_r * 2/3, 0]) {
-					rotate([90, 0, 0]) {
-						hose_tail(feed_id, feed_tail_h, min_wall_t);
-					}
-					rotate([-90, 0, 0]) {
-						cylinder(r = hose_tail_min_or(feed_id, hose_tail_default_stretch()), h = dome_r * 2/3);
-					}
-				}
-				sphere(r = hose_tail_min_or(feed_id, hose_tail_default_stretch()));
-			}
-		}
-		translate([0, 0, dome_h - dome_sphere_r]) {
-			sphere(r = dome_sphere_r - chamber_wall_t);
-		}
-		translate([0, 0, dome_h]) {
-			sphere(r = duct_ir);
-			rotate([-180, 0, 0]) cylinder(r = duct_ir, h = duct_ir + chamber_wall_t);
-			translate([0, -dome_r * 2/3, 0]) {
-				rotate([-90, 0, 0]) {
-					translate([0, 0, -eps]) {
-						cylinder(r = duct_ir, h = dome_r * 2/3 + eps2);
-					}
-				}
-			}
-		}
-	}
-}
-
-//dome_top();
-
-spacer_h = 8;
-module flange_spacer() {
-	difference() {
-		circular_bolting_flange(flange_or, spacer_h);
-		translate([0, 0, -eps]) {
-			cylinder(r = flange_bolt_circle_r(flange_or), h = spacer_h + eps2);
-			translate([-flange_or - eps, 0, 0]) {
-				cube([2 * (flange_or + eps), flange_or  + eps, spacer_h + eps2]);
-			}
-			// pull appart notch
-			translate([flange_or - rim_hole_r, 0 ,0]) {
-				rotate([0, 0, -45]) cube([2*rim_hole_r, 2*rim_hole_r, spacer_h + eps2]);
-			}
-		}
-	}
-}
-
-//flange_spacer();
-
-degasser_h = funnel_hight(funnel_mouth_r, drain_r) + horizontal_wall_t;
-module degasser() {
-	overlap = 0.5;
-	fudge = 5;
-	union() {
-		translate([0, 0, degasser_h]) rotate([180, 0, 0]) {
-			funnel(funnel_mouth_r, drain_r, flange_t = degasser_h * (1 - overlap) + eps);
-		}
-		difference() {
-			funnel_outside(funnel_mouth_r, drain_r, flange_t = degasser_h * (1 - overlap) + eps);
-			funnel_inside(funnel_mouth_r, drain_r, flange_t = degasser_h * (1 - overlap) + eps);
-			translate([0, 0, degasser_h + eps]) {
-				rotate([180, 0, 0]) {
-					cylinder(r = flange_or + eps, h = degasser_h * (1 - overlap) + eps);
-				}
-			}
-			translate([0, 0, feed_id/2 + chamber_wall_t]) {
-				rotate([90, 0, 0]) cylinder(r = duct_ir, h = flange_or + eps);
-			}
-		}
-		translate([0, -flange_or + fudge, feed_id/2 + chamber_wall_t]) {
-			rotate([90, 0, 0]) hose_tail(feed_id, feed_tail_h, min_wall_t);
-		}
-	}
-}
-
-//degasser();
-
-module feed_chamber_assembly() {
-	%rotate([180, 0, 0]) funnel_with_tail();
-	#flange_spacer();
-	rotate([0, 0, 180]) #flange_spacer();
-	translate([0, 0, spacer_h]) {
-		degasser();
-		translate([0, 0, degasser_h]) {
-			%dome_top();
-		}
-	}
-}
-
-//feed_chamber_assembly();
+//funnel_with_tail(mouth_r = 70/2, feed_id = 16, feed_tail_h = 25);

@@ -1,0 +1,3 @@
+[submodule "scad-hose"]
+	path = scad-hose
+	url = git@github.com:leodearden/scad-hose.git
