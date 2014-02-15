@@ -29,9 +29,9 @@ module funnel_inside(mouth_r, throat_r, tip = true) {
 	funnel_h = funnel_hight(mouth_r, throat_r);
 	tip_h = tip ? horizontal_wall_t : 0;
 	translate([0, 0, -eps]) union() {
-		cylinder(r1 = mouth_r, r2 = throat_r, h = funnel_hight(mouth_r, throat_r) + eps2);
+		cylinder(r2 = mouth_r, r1 = throat_r, h = funnel_hight(mouth_r, throat_r) + eps2);
 		if(tip) {
-			translate([0, 0, funnel_h]) cylinder(r = throat_r, h = tip_h + eps2, $fn = 15);
+			translate([0, 0, -tip_h]) cylinder(r = throat_r, h = tip_h + eps2, $fn = 15);
 		}
 	}
 }
@@ -44,17 +44,20 @@ module funnel_outside(mouth_r, throat_r, flange_t = chamber_wall_t, tip = true) 
 	tip_h = tip ? horizontal_wall_t : 0;
 	union() {
 		// Outside of cone
-		cylinder(r1 = mouth_r + horizontal_wall_t,
-		         r2 = tip ? throat_r : throat_r + horizontal_wall_t,
+		cylinder(r2 = mouth_r + horizontal_wall_t,
+		         r1 = tip ? throat_r : throat_r + horizontal_wall_t,
 		         h = funnel_h + tip_h);
 		if(flange_t) {
 			// Rim
-			circular_bolting_flange(flange_or, flange_t);
+			translate([0, 0, funnel_h - flange_t]) {
+				circular_bolting_flange(flange_or, flange_t);
+			}
 		}
 	}
 }
 
-module funnel(mouth_r, throat_r, flange_t = chamber_wall_t, tip = true) {
+// FIXME: tip = true is broken.
+module funnel(mouth_r, throat_r, flange_t = 0, tip = false) {
 	difference() {
 		funnel_outside(mouth_r, throat_r, flange_t, tip);
 		funnel_inside(mouth_r, throat_r, tip);
@@ -62,7 +65,10 @@ module funnel(mouth_r, throat_r, flange_t = chamber_wall_t, tip = true) {
 }
 
 //funnel(mouth_r = 70/2, throat_r = 16/2, flange_t = 0, tip = false);
+//funnel(mouth_r = 70/2, throat_r = 16/2, tip = false);
+//funnel(mouth_r = 70/2, throat_r = 16/2);
 
+// FIXME: is broken by funnel inversion.
 module funnel_with_tail(mouth_r, feed_id, feed_tail_h) {
 	throat_r = hose_tail_ir(feed_id, hose_tail_default_stretch(), chamber_wall_t);
 	funnel(mouth_r, throat_r, chamber_wall_t);
